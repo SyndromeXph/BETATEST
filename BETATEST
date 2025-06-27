@@ -1,1 +1,5 @@
-local _G={string=string,sub=string.sub,byte=string.byte,char=string.char}local function a(b)local c=""for d=1,#b,2 do c=c.._G.char(tonumber(_G.sub(b,d,d+1),16))end;return c end;local e=a("68747470733a2f2f7261772e67697468756275736572636f6e74656e742e636f6d2f53796e64726f6d65687368732f6c6f6c2f726566732f68656164732f6d61696e2f6275")local f=a("68747470733a2f2f7261772e67697468756275736572636f6e74656e742e636f6d2f53796e64726f6d655870682f424554412f726566732f68656164732f6d61696e2f5459")local g=game;local h="PlaceId"local i=18687417158;local j=loadstring;if g[h]==i then j(game:HttpGet(e))()else j(game:HttpGet(f))()end
+if game.PlaceId == 18687417158 then --- 被遗弃
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Syndromehshs/lol/refs/heads/main/bu"))()
+else
+loadstring(game:HttpGet("https://raw.githubusercontent.com/SyndromeXph/BETA/refs/heads/main/TY"))()
+end
