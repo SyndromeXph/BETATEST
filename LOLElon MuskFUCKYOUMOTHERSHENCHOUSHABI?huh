@@ -1,0 +1,1 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Syndromehshs/lol/refs/heads/main/The%20Rake.TXT"))()
