@@ -1,0 +1,758 @@
+local repo = 'https://raw.githubusercontent.com/deividcomsono/Obsidian/main/'
+
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+local Options = Library.Options
+local Toggles = Library.Toggles
+
+local _G = getgenv() or {}
+_G.AutoClickData = _G.AutoClickData or {}
+_G.TeleportData = _G.TeleportData or {}
+_G.CleanupData = _G.CleanupData or {}
+
+Library.ShowToggleFrameInKeybinds = true 
+Library.ShowCustomCursor = true
+Library.NotifySide = "Right"
+
+local Window = Library:CreateWindow({
+    Title = ' Sans｜BETATEST',
+    Footer = "版本: Alpha测试",
+    Icon = 106397684977541,
+    Center = true,
+    AutoShow = true,
+    Resizable = true,
+    ShowCustomCursor = true,
+    NotifySide = "Right",
+    TabPadding = 8,
+    MenuFadeTime = 0
+})
+
+local Tabs = {
+    tzq = Window:AddTab('自动区','House'),
+    tfz = Window:AddTab('删除区','moon'),
+    ["UI Settings"] = Window:AddTab('UI调试', 'settings')
+}
+
+local _env = getgenv and getgenv() or {}
+local _hrp = game.Players.LocalPlayer.Character:WaitForChild("HumanoidRootPart")
+
+local ZZ = Tabs.tzq:AddRightGroupbox('自动点击Sans')
+
+ZZ:AddToggle("AutoClickAllEnemies", {
+    Text = "自动点击Sans",
+    Default = false,
+    Callback = function(enabled)
+       
+        _G.AutoClickAllData = _G.AutoClickAllData or {
+            connection = nil,    
+            active = false,      
+            interval = 0.00001,  
+            lastClick = 0        
+        }
+        local data = _G.AutoClickAllData
+
+        
+        local function cleanup()
+            if data.connection then
+                data.connection:Disconnect()
+                data.connection = nil
+            end
+            data.active = false
+            data.lastClick = 0
+        end
+
+        if enabled then
+            
+            if data.active then
+                cleanup()
+            end
+            
+         
+            data.active = true
+            
+          
+            data.connection = game:GetService("RunService").Heartbeat:Connect(function()
+              
+                if not data.active then return end
+                
+              
+                local now = tick()
+                if now - data.lastClick < data.interval then return end
+                data.lastClick = now
+                
+               
+                local enemiesFolder = workspace:FindFirstChild("Enemies")
+                if not enemiesFolder then return end
+                
+             
+                for _, model in pairs(enemiesFolder:GetChildren()) do
+                 
+                    if not data.active then break end
+                    
+                   
+                    local clickHitbox = model:FindFirstChild("ClickHitbox")
+                    if clickHitbox then
+                        local clickDetector = clickHitbox:FindFirstChild("ClickDetector")
+                        if clickDetector then
+                            fireclickdetector(clickDetector)
+                        end
+                    end
+                end
+            end)
+            
+            print("自动点击已激活")
+        else
+            
+            cleanup()
+            print("自动点击已停用")
+        end
+    end
+})
+
+
+ZZ:AddSlider("ClickInterval", {
+    Text = "点击间隔(秒)",
+    Default = 0.00001,
+    Min = 0.000000000001,
+    Max = 1,
+    Rounding = 5,
+    Callback = function(value)
+        if _G.AutoClickAllData then
+            _G.AutoClickAllData.interval = value
+            print("点击间隔设置为:", value)
+        end
+    end
+})
+local ZZ = Tabs.tzq:AddRightGroupbox('自动传送到Sans头顶(通用)')
+
+ZZ:AddToggle("EnemyHeadTeleport", {
+    Text = "自动传送至Sans头顶",
+    Default = false,
+    Callback = function(enabled)
+        _G.TeleportData = _G.TeleportData or {
+            connection = nil,
+            lastEnemy = nil,
+            active = false
+        }
+        local data = _G.TeleportData
+
+        if enabled then
+            if data.connection then
+                data.connection:Disconnect()
+            end
+            
+            data.active = true
+            
+            data.connection = game:GetService("RunService").Heartbeat:Connect(function()
+                if not data.active then return end
+                
+                local character = game.Players.LocalPlayer.Character
+                if not character then return end
+                
+                local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                if not humanoidRootPart then return end
+
+                local enemiesFolder = workspace:FindFirstChild("Enemies")
+                if not enemiesFolder then return end
+
+                if data.lastEnemy and data.lastEnemy:FindFirstChild("Head") then
+                    local headPosition = data.lastEnemy.Head.Position
+                    humanoidRootPart.CFrame = CFrame.new(headPosition + Vector3.new(0, 3.5, 0))
+                    return
+                end
+
+                local closestEnemy = nil
+                local closestDistance = math.huge
+                
+                for _, enemy in ipairs(enemiesFolder:GetChildren()) do
+                    local head = enemy:FindFirstChild("Head")
+                    if head then
+                        local distance = (humanoidRootPart.Position - head.Position).Magnitude
+                        if distance < closestDistance then
+                            closestDistance = distance
+                            closestEnemy = enemy
+                        end
+                    end
+                end
+
+                if closestEnemy and closestEnemy:FindFirstChild("Head") then
+                    local headPosition = closestEnemy.Head.Position
+                    humanoidRootPart.CFrame = CFrame.new(headPosition + Vector3.new(0, 3.5, 0))
+                    data.lastEnemy = closestEnemy
+                end
+            end)
+        else
+            if data.connection then
+                data.connection:Disconnect()
+                data.connection = nil
+            end
+            data.lastEnemy = nil
+            data.active = false
+        end
+    end
+})
+
+local ZZ = Tabs.tfz:AddRightGroupbox('TD sans弹幕清理(全阶段)')
+
+ZZ:AddToggle("AutoRemoveTridents", {
+    Text = "自动删除三叉戟",
+    Default = false,
+    Callback = function(enabled)
+        _G.CleanupData.Tridents = _G.CleanupData.Tridents or {
+            connection = nil,
+            active = false,
+            lastCleanTime = 0,
+            cleanInterval = 0.5,
+            tridentNames = {"TDTrident", "TDTrident2"}
+        }
+        local data = _G.CleanupData.Tridents
+
+        local function cleanup()
+            if data.connection then
+                data.connection:Disconnect()
+                data.connection = nil
+            end
+            data.active = false
+        end
+
+        local function removeTridents()
+            if not data.active then return end
+            
+            local now = os.clock()
+            if now - data.lastCleanTime < data.cleanInterval then
+                return
+            end
+            data.lastCleanTime = now
+            
+            local descendants = workspace:GetDescendants()
+            for _, child in ipairs(descendants) do
+                if not data.active then break end
+                
+                for _, name in ipairs(data.tridentNames) do
+                    if child.Name == name then
+                        child:Destroy()
+                        break
+                    end
+                end
+            end
+        end
+
+        if enabled then
+            if data.active then
+                cleanup()
+            end
+            
+            data.active = true
+            
+            task.spawn(function()
+                removeTridents()
+            end)
+            
+            data.connection = game:GetService("RunService").RenderStepped:Connect(function()
+                removeTridents()
+            end)
+            
+            if not data.childAddedConn then
+                data.childAddedConn = workspace.DescendantAdded:Connect(function(child)
+                    if not data.active then return end
+                    
+                    for _, name in ipairs(data.tridentNames) do
+                        if child.Name == name then
+                            task.wait(0.05)
+                            if child and child.Parent then
+                                child:Destroy()
+                            end
+                            break
+                        end
+                    end
+                end)
+            end
+        else
+            cleanup()
+            if data.childAddedConn then
+                data.childAddedConn:Disconnect()
+                data.childAddedConn = nil
+            end
+        end
+    end
+})
+
+ZZ:AddToggle("SansAttacksCleaner", {
+    Text = "自动清理Sans攻击",
+    Default = false,
+    Callback = function(enabled)
+        _G.CleanupData.SansAttacks = _G.CleanupData.SansAttacks or {
+            connections = {},
+            active = false
+        }
+        local data = _G.CleanupData.SansAttacks
+
+        local function cleanup()
+            for _, conn in pairs(data.connections) do
+                conn:Disconnect()
+            end
+            data.connections = {}
+            data.active = false
+        end
+
+        if enabled then
+            if data.active then
+                cleanup()
+            end
+            
+            data.active = true
+            
+            local function deleteSansAndAttacks()
+                local enemiesFolder = workspace:FindFirstChild("Enemies")
+                if not enemiesFolder then return end
+                
+              
+                local sansAttacks = enemiesFolder:FindFirstChild("SansAttacks")
+                if sansAttacks then
+                    sansAttacks:Destroy()
+                end
+                
+                local attacks = enemiesFolder:FindFirstChild("Attacks")
+                if attacks then
+                    attacks:Destroy()
+                end
+            end
+
+            deleteSansAndAttacks()
+            
+            data.connections.heartbeat = game:GetService("RunService").Heartbeat:Connect(function()
+                if data.active then
+                    deleteSansAndAttacks()
+                end
+            end)
+
+            data.connections.folderAdded = workspace.ChildAdded:Connect(function(child)
+                if child.Name == "Enemies" and data.active then
+                    task.wait(0.5)
+                    deleteSansAndAttacks()
+                end
+            end)
+        else
+            cleanup()
+        end
+    end
+})
+
+local ZZ = Tabs.tfz:AddRightGroupbox('通用Sans弹幕清理')
+
+ZZ:AddToggle("ForceFieldCleaner", {
+    Text = "自动清理Sans的回击攻击",
+    Default = false,
+    Callback = function(enabled)
+        _G.CleanupData = _G.CleanupData or {}
+        _G.CleanupData.ForceFields = _G.CleanupData.ForceFields or {
+            connections = {},
+            active = false,
+            lastCheck = 0
+        }
+        
+        local data = _G.CleanupData.ForceFields
+
+        local function cleanup()
+            for _, conn in pairs(data.connections) do
+                if conn and conn.Connected then
+                    conn:Disconnect()
+                end
+            end
+            data.connections = {}
+            data.active = false
+            data.lastCheck = 0
+        end
+
+        if enabled then
+            if data.active then
+                cleanup()
+            end
+            
+            data.active = true
+            
+            local function deleteForceFields()
+                local enemiesFolder = workspace:FindFirstChild("Enemies")
+                if not enemiesFolder then 
+                    warn("未找到Enemies文件夹!")
+                    return 
+                end
+                
+                for _, enemy in ipairs(enemiesFolder:GetChildren()) do
+                    local forceField = enemy:FindFirstChildOfClass("ForceField")
+                    if forceField then
+                        forceField:Destroy()
+                        print("已移除", enemy.Name, "的ForceField")
+                    end
+                end
+            end
+
+            deleteForceFields()
+            
+            data.connections.heartbeat = game:GetService("RunService").Heartbeat:Connect(function()
+                if not data.active then return end
+                
+                local now = tick()
+                if now - data.lastCheck >= 1 then
+                    data.lastCheck = now
+                    deleteForceFields()
+                end
+            end)
+            
+            print("ForceField清理已激活")
+        else
+            cleanup()
+            print("ForceField清理已停用")
+        end
+    end
+})
+
+ZZ:AddToggle("SansAttacksCleaner", {
+    Text = "自动清理Sans攻击",
+    Default = false,
+    Callback = function(enabled)
+        _G.CleanupData.SansAttacks = _G.CleanupData.SansAttacks or {
+            connections = {},
+            active = false
+        }
+        local data = _G.CleanupData.SansAttacks
+
+        local function cleanup()
+            for _, conn in pairs(data.connections) do
+                conn:Disconnect()
+            end
+            data.connections = {}
+            data.active = false
+        end
+
+        if enabled then
+            if data.active then
+                cleanup()
+            end
+            
+            data.active = true
+            
+            local function deleteSansAndAttacks()
+                local enemiesFolder = workspace:FindFirstChild("Enemies")
+                if not enemiesFolder then return end
+                
+            
+                local sansAttacks = enemiesFolder:FindFirstChild("SansAttacks")
+                if sansAttacks then
+                    sansAttacks:Destroy()
+                end
+                
+                local attacks = enemiesFolder:FindFirstChild("Attacks")
+                if attacks then
+                    attacks:Destroy()
+                end
+            end
+
+            deleteSansAndAttacks()
+            
+            data.connections.heartbeat = game:GetService("RunService").Heartbeat:Connect(function()
+                if data.active then
+                    deleteSansAndAttacks()
+                end
+            end)
+
+            data.connections.folderAdded = workspace.ChildAdded:Connect(function(child)
+                if child.Name == "Enemies" and data.active then
+                    task.wait(0.5)
+                    deleteSansAndAttacks()
+                end
+            end)
+        else
+            cleanup()
+        end
+    end
+})
+
+local ZZ = Tabs.tfz:AddRightGroupbox('CORRUPTEDINSANITY冲击波清理')
+
+ZZ:AddToggle("ShockwaveCleaner", {
+    Text = "自动清理冲击波",
+    Default = false,
+    Callback = function(enabled)
+        _G.CleanupData.Shockwaves = _G.CleanupData.Shockwaves or {
+            connections = {},
+            active = false
+        }
+        local data = _G.CleanupData.Shockwaves
+
+        local function cleanup()
+            for _, conn in pairs(data.connections) do
+                conn:Disconnect()
+            end
+            data.connections = {}
+            data.active = false
+        end
+
+        if enabled then
+            if data.active then
+                cleanup()
+            end
+            
+            data.active = true
+            
+            local function deleteShockwaves()
+                for _, instance in ipairs(workspace:GetDescendants()) do
+                    if instance.Name == "CIShockwave" or instance.Name == "CITentacleSlam" then
+                        instance:Destroy()
+                    end
+                end
+            end
+
+            deleteShockwaves()
+            
+            data.connections.heartbeat = game:GetService("RunService").Heartbeat:Connect(function()
+                if data.active then
+                    deleteShockwaves()
+                end
+            end)
+        else
+            cleanup()
+        end
+    end
+})
+
+
+
+
+local ZZ = Tabs.tfz:AddRightGroupbox('Error 404')
+
+ZZ:AddToggle("SansAttacksCleaner", {
+    Text = "删除弹幕攻击",
+    Default = false,
+    Callback = function(enabled)
+        _G.CleanupData.SansAttacks = _G.CleanupData.SansAttacks or {
+            connections = {},
+            active = false
+        }
+        local data = _G.CleanupData.SansAttacks
+
+        local function cleanup()
+            for _, conn in pairs(data.connections) do
+                conn:Disconnect()
+            end
+            data.connections = {}
+            data.active = false
+        end
+
+        if enabled then
+            if data.active then
+                cleanup()
+            end
+            
+            data.active = true
+            
+            local function deleteSansAndAttacks()
+                local enemiesFolder = workspace:FindFirstChild("Enemies")
+                if not enemiesFolder then return end
+                
+              
+                local sansAttacks = enemiesFolder:FindFirstChild("SansAttacks")
+                if sansAttacks then
+                    sansAttacks:Destroy()
+                end
+                
+                local attacks = enemiesFolder:FindFirstChild("Attacks")
+                if attacks then
+                    attacks:Destroy()
+                end
+            end
+
+            deleteSansAndAttacks()
+            
+            data.connections.heartbeat = game:GetService("RunService").Heartbeat:Connect(function()
+                if data.active then
+                    deleteSansAndAttacks()
+                end
+            end)
+
+            data.connections.folderAdded = workspace.ChildAdded:Connect(function(child)
+                if child.Name == "Enemies" and data.active then
+                    task.wait(0.5)
+                    deleteSansAndAttacks()
+                end
+            end)
+        else
+            cleanup()
+        end
+    end
+})
+
+
+ZZ:AddToggle("AutoRemoveErrorFiles", {
+    Text = "自动删除错误球",
+    Default = false,
+    Callback = function(enabled)
+      
+        _G.CleanupData.ErrorFiles = _G.CleanupData.ErrorFiles or {
+            connection = nil,
+            active = false,
+            targetFiles = {
+                Error404BALL2 = true,
+                Error1 = true,
+                Error2 = true
+            },
+            performance = {
+                maxOpsPerFrame = 50,      
+                baseDelay = 0.5,        
+                loadDelay = 0.1,         
+                lastFrameTime = 0,
+                lastCheckTime = 0
+            }
+        }
+        local data = _G.CleanupData.ErrorFiles
+
+  
+        local function safeDestroy(instance)
+            if instance and instance.Parent then
+                pcall(instance.Destroy, instance)
+            end
+        end
+
+     
+        local function cleanupLoop()
+            if not data.active then return end
+            
+            local startTime = os.clock()
+            local opsCount = 0
+            
+          
+            for _, instance in ipairs(workspace:GetDescendants()) do
+                if not data.active then break end
+                
+                if data.targetFiles[instance.Name] then
+                    task.spawn(safeDestroy, instance)
+                    opsCount = opsCount + 1
+                    
+              
+                    if opsCount >= data.performance.maxOpsPerFrame then
+                        local frameTime = os.clock() - startTime
+                        data.performance.lastFrameTime = frameTime
+                        
+                      
+                        if frameTime > 0.016 then 
+                            data.performance.loadDelay = math.min(0.5, data.performance.loadDelay + 0.05)
+                        end
+                        
+                        task.wait()
+                        opsCount = 0
+                        startTime = os.clock()
+                        if not data.active then break end
+                    end
+                end
+            end
+            
+        
+            if data.active then
+                local elapsed = os.clock() - startTime
+                local baseWait = math.max(0, data.performance.baseDelay - elapsed)
+                
+          
+                if elapsed < 0.01 then
+                    data.performance.loadDelay = math.max(0.05, data.performance.loadDelay - 0.02)
+                end
+                
+              
+                task.delay(baseWait + data.performance.loadDelay, cleanupLoop)
+            end
+        end
+
+        if enabled then
+            
+            if data.active then
+                data.active = false
+                task.wait(0.1) 
+            end
+            
+            data.active = true
+            data.performance.lastCheckTime = os.clock()
+            
+        
+            task.spawn(cleanupLoop)
+            
+          
+            if not data.connection then
+                data.connection = workspace.DescendantAdded:Connect(function(instance)
+                    if not data.active then return end
+                    if data.targetFiles[instance.Name] then
+                        task.wait(0.05) 
+                        safeDestroy(instance)
+                    end
+                end)
+            end
+        else
+        
+            data.active = false
+            if data.connection then
+                data.connection:Disconnect()
+                data.connection = nil
+            end
+        end
+    end
+})
+
+local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("调试功能")
+
+MenuGroup:AddToggle("KeybindMenuOpen", {
+    Default = Library.KeybindFrame.Visible,
+    Text = "快捷菜单",
+    Callback = function(value)
+        Library.KeybindFrame.Visible = value
+    end,
+})
+
+MenuGroup:AddToggle("ShowCustomCursor", {
+    Text = "自定义光标",
+    Default = true,
+    Callback = function(Value)
+        Library.ShowCustomCursor = Value
+    end,
+})
+
+MenuGroup:AddDropdown("NotificationSide", {
+    Values = { "左", "右" },
+    Default = "右",
+    Text = "通知位置",
+    Callback = function(Value)
+        Library:SetNotifySide(Value)
+    end,
+})
+
+MenuGroup:AddDropdown("DPIDropdown", {
+    Values = { "25%", "50%", "75%", "100%", "125%", "150%", "175%", "200%" },
+    Default = "100%",
+    Text = "UI大小",
+    Callback = function(Value)
+        Value = Value:gsub("%%", "")
+        local DPI = tonumber(Value)
+        Library:SetDPIScale(DPI)
+    end,
+})
+
+MenuGroup:AddDivider()
+MenuGroup:AddLabel("Menu bind")
+    :AddKeyPicker("MenuKeybind", { 
+        Default = "RightShift",
+        NoUI = true,
+        Text = "Menu keybind"
+    })
+
+MenuGroup:AddButton("删除UI", function()
+    Library:Unload()
+end)
+
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
+ThemeManager:SetFolder("MyScriptHub")
+SaveManager:SetFolder("MyScriptHub/specific-game")
+SaveManager:SetSubFolder("specific-place")
+SaveManager:BuildConfigSection(Tabs["UI Settings"])
+ThemeManager:ApplyToTab(Tabs["UI Settings"])
+SaveManager:LoadAutoloadConfig()
